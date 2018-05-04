@@ -1,10 +1,10 @@
-import os, sys, subprocess
+import os, subprocess
 import parser5
 from tkinter import *
 import tkinter.messagebox
 from tkinter import simpledialog
 import requests, zipfile, io, tldextract, json
-import pygame, threading, queue
+import pygame, threading
 
 
 class myWindow(Frame):
@@ -146,12 +146,11 @@ def LaunchCiv():
     data = json.load(open("state.json"))
     print(data["path"])
 
-    #subprocess.Popen(data["path"]+"/CivilizationV.exe")
     steampath=data["path"]
     steampath= re.sub('(steamapps).*', '', steampath)
     steampath=steampath+"Steam.exe"
     subprocess.Popen([steampath,"steam://rungameid/8930//%5Cdx11"])
-    #root.destroy()
+    root.destroy()
 
 
 # ********* Main **********
@@ -179,8 +178,7 @@ window = myWindow(root)
 window.pack(side=LEFT)
 statusText = StringVar()
 statusText.set("Ready..")
-#SecondFrame = myWindow(root)
-#SecondFrame.pack(side=LEFT)
+
 
 # ********** Main Menu **********
 menu = Menu(root)
