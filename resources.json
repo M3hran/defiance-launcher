@@ -5,17 +5,21 @@
       "url":"https://www.dropbox.com/s/qfxpq4s3mpxuz5s/LEKMOD_V16F.zip"
     },
     {
-      "name":"LEKMOD_V14S",
-      "url":"https://www.dropbox.com/s/qfxpq4s3mpxuz5s/LEKMOD_V16F.zip"
+      "name":"LEK_MODSPACK_V14S",
+      "url":"https://www.dropbox.com/s/dpl73rkeunmqtga/LEK_MODSPACK_V14S.zip"
+    },
+    {
+      "name":"LEK_MODSPACK_V13W",
+      "url":"https://www.dropbox.com/s/t5odml3ci5vwldl/LEK_MODSPACK_V13W.zip"
     }
   ],
   "maps": [
     {
-      "name":"Defiance_Maps_Pack_v1",
+      "name":"Defiance Maps Pack v1",
       "url":"https://www.dropbox.com/s/0f9g67rn9a5wdm8/Defiance%20Maps%20Pack%20v1.zip"
     },
     {
-      "name":"v18_HB_Pangea",
+      "name":"v18 HB Pangea",
       "url":"https://www.dropbox.com/s/9kowa20qvh9caci/v18%20HB%20Pangea.zip"
     }
   ]

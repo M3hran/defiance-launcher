@@ -1,6 +1,6 @@
 import os
 import re
-import win32api
+import win32api, threading
 
 rs=[]
 steamfolder="steamapp"
@@ -48,8 +48,10 @@ def find_installation():
                     break
             else:
                 print("Civ installation folder not found!")
+                return -1
     else:
         print("steamapp folder not found!")
+        return -1
     return path
 
 
