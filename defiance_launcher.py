@@ -145,10 +145,13 @@ def dl_mod():
 def LaunchCiv():
     data = json.load(open("state.json"))
     print(data["path"])
+
     #subprocess.Popen(data["path"]+"/CivilizationV.exe")
-    steampath="C:\Program Files (x86)\Steam\Steam.exe"
+    steampath=data["path"]
+    steampath= re.sub('(steamapps).*', '', steampath)
+    steampath=steampath+"Steam.exe"
     subprocess.Popen([steampath,"steam://rungameid/8930//%5Cdx11"])
-    root.destroy()
+    #root.destroy()
 
 
 # ********* Main **********
