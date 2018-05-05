@@ -33,6 +33,7 @@ def find_path(possible_path,path):
     return path
 
 def find_installation():
+    print("Searching for game path...")
     steamapp=search_drives(steamfolder)
 
     if steamapp:
