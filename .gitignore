@@ -1,4 +1,4 @@
-state.json
-.idea/
 maps/
 mods/
+dist/
+build/

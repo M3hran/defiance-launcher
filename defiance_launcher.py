@@ -108,6 +108,43 @@ def dl_resources(url, asset):
 def aboutpage():
     tkinter.messagebox.showinfo("About Defiance-Launcher", "Contribute at https://www.github.com/m3hran/defiance-launcher")
 
+def setMenu(type):
+    statedata = json.load(open("state.json"))
+
+    if type == "mod":
+        if statedata["mod"] == "":
+            a = parser5.find_existing("mod")
+            if a:
+                variable1.set(a)
+                with open("state.json", "r") as jsonFile:
+                    data = json.load(jsonFile)
+
+                data[type] = a
+                with open("state.json", "w") as jsonFile:
+                    json.dump(data, jsonFile)
+            else:
+                variable1.set("MODs")
+        if statedata["mod"] != "":
+            variable1.set(statedata["mod"])
+
+    if type == "map":
+        if statedata["map"] == "":
+            a = parser5.find_existing("map")
+            if a:
+                variable2.set(a)
+                with open("state.json", "r") as jsonFile:
+                    data = json.load(jsonFile)
+
+                data[type] = a
+                print("setting asset " + data[type])
+                with open("state.json", "w") as jsonFile:
+                    json.dump(data, jsonFile)
+
+            else:
+                variable2.set("MAPs")
+        if statedata["map"] != "":
+            variable2.set(statedata["map"])
+
 def init_resources():
 
     #init in a different thread
@@ -144,32 +181,37 @@ def init_resources():
                 print("downloading "+map["name"])
             lock.set("false")
         statusText.set("Locating Steamapps...Please wait..")
+
         if (sema.acquire(blocking=False)):
             statusText.set("Ready.")
         sema.release()
 
     def callback2():
         sema.acquire()
-        statusText.set("Locating Steamapps...Please wait..")
-        lock.set("true")
-        install_path=parser5.find_installation()
-        print("game path found!")
-        statusText.set("Steamapps Located...")
-        data = { "path": install_path, "mod": "none", "map": "none", "music":"on" }
-        with open('state.json', 'w') as f:
-            json.dump(data, f, ensure_ascii=False)
-        if (sema.acquire(blocking=False)):
-            statusText.set("Ready.")
-        lock.set("false")
+        with open("state.json", "r") as jsonFile:
+            data = json.load(jsonFile)
+
+        if data["path"] == "" or data["path"] == None:
+            statusText.set("Locating Steamapps...Please wait..")
+            lock.set("true")
+            install_path=parser5.find_installation()
+            print("game path found!")
+            statusText.set("Steamapps Located...")
+            data["path"]=install_path
+            with open('state.json', 'w') as f:
+                json.dump(data, f, ensure_ascii=False)
+            if (sema.acquire(blocking=False)):
+                statusText.set("Ready.")
+            lock.set("false")
         sema.release()
 
     sema = threading.BoundedSemaphore(value=2)
 
     t1 = threading.Thread(target=callback1)
     t1.start()
-    if not os.path.isfile("state.json"):
-        t2 = threading.Thread(target=callback2)
-        t2.start()
+
+    t2 = threading.Thread(target=callback2)
+    t2.start()
 
 def dl_map():
     a = ask_url()
@@ -395,10 +437,7 @@ for mod in data["mods"]:
 with open("state.json", "r") as jsonFile:
     statedata = json.load(jsonFile)
 
-if statedata["mod"] == "":
-    variable1.set("MODs")
-else:
-    variable1.set(statedata["mod"])
+setMenu("mod")
 md = OptionMenu(f1, variable1, *mod_dropdown, command=mod_select)
 md.pack(side=LEFT, padx=25)
 
@@ -409,11 +448,12 @@ data = json.load(open("resources.json"))
 for map in data["maps"]:
     map_dropdown.append(map["name"])
 
-if statedata["map"] == "":
-    variable2.set("MAPs")
-else:
-    variable2.set(statedata["map"])
+#if statedata["map"] == "":
+#    variable2.set("MAPs")
+#else:
+#    variable2.set(statedata["map"])
 
+setMenu("map")
 mp = OptionMenu(f2, variable2, *map_dropdown, command=map_select)
 mp.pack(side=LEFT, padx=25)
 
