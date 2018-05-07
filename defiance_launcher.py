@@ -40,6 +40,7 @@ def valid_url(url):
     else:
         return False
 
+
 def doesnothing():
     tkinter.messagebox.showwarning("In Development", "Oops, this does nothing at the moment :(")
 
@@ -47,25 +48,43 @@ def ask_url():
 
     f1=False
     f2=False
+    f3=False
     url = simpledialog.askstring("Input", "Note: You may only download zip files\nEnter URL: ")
     #print(url)
     if url != None:
         a=valid_url(url)
         if  a != True:
             tkinter.messagebox.showwarning("Invalid", "Not a valid URL. Please try again.")
-            #ask_url()
         else:
             f2=True
 
 
         if url != None and f2==True:
+            ext = tldextract.extract(url)
+            #ext.domain == "dropbox"
+                #url = url + "?raw=1"
+
             b = url[-4:]
-            if b != '.zip':
+            if b != '.zip' and ext.domain != "dropbox":
                 tkinter.messagebox.showwarning("Invalid","URL must end with \".zip\"")
                 #print(b)
-                #ask_url()
-            else:
-                f1 = True
+            if ext.domain == "dropbox":
+                if re.search(r'preview=', url, re.IGNORECASE):
+                    raise ValueError("You are using dropbox's preivew link, use actual zipfile link!\n\nHint: Right click on zipfile, select \"Copy link address\"")
+                if re.search(r'\?dl=0', url, re.IGNORECASE):
+                    r = re.compile(r'\?dl=0',re.IGNORECASE)
+                    url = r.sub(r'', url)
+                    print(url)
+                b = url[-4:]
+                if b == '.zip':
+                    url=url+"?dl=1"
+                    print("here")
+
+                else:
+                    raise ValueError("Bad Download URL")
+
+            f1 = True
+            print(url)
 
         if(f1 and f2 == True):
             #print(url)
@@ -74,14 +93,44 @@ def ask_url():
 
 def dl_resources(url, asset):
 
-    modName = url.split('/')[-1]
-    modName = modName[:-4]
-    #print(modName)
+    #download and unpack zip file in mod folder
+    try:
+        print(url)
+        lock.set("true")
+
+        # download from url
+        statusText.set("Downloading...")
+        r = requests.get(url)
+        # extract filename from url header
+        d = r.headers['content-disposition']
+        modName = re.findall("filename=(.+)", d)
+        modName = ''.join(modName)
+        modName = re.findall(r'"([^"]*)"', modName)
+        modName = ''.join(modName)
+        modName = modName[:-4]
+        print("starting unzip")
+        z = zipfile.ZipFile(io.BytesIO(r.content))
+        fname=z.namelist()[0].split("/")[0]
+        print(fname)
+        if asset == "map":
+            z.extractall("maps/")
+        elif asset == "mod":
+            z.extractall("mods/")
+        else:
+            print("dl asset err")
+        statusText.set("Ready.")
+        lock.set("false")
+
+
+    except:
+        e = sys.exc_info()[0]
+        tkinter.messagebox.showwarning("Error", "Error: %s" % e)
+        return "error"
+
+    #update resources with new asset
 
     with open("resources.json", "r") as jsonFile:
         data = json.load(jsonFile)
-
-    #print(data)
     a= asset+"s"
     match=False
     for i in data[a]:
@@ -89,21 +138,48 @@ def dl_resources(url, asset):
             match = True
 
     if match == False:
-        data[a].append({'name':modName,'url':url})
+        data[a].append({'name':modName,'folderName':fname,'url':url})
         with open("resources.json", "w") as jsonFile:
             json.dump(data, jsonFile)
 
-    ext = tldextract.extract(url)
-    if ext.domain=="dropbox":
-        url=url+"?raw=1"
+def dl_map():
+    try:
+        a = ask_url()
+    except ValueError as err:
+        tkinter.messagebox.showwarning("Error", err.args)
+    if a:
+        v = dl_resources(a,"map")
 
-    #download and unpack zip file in mod folder
-    r = requests.get(url)
-    z = zipfile.ZipFile(io.BytesIO(r.content))
-    if asset == "map":
-        z.extractall("maps/")
-    if asset == "mod":
-        z.extractall("mods/")
+        if v != "error":
+            map_dropdown = []
+            mp.children["menu"].delete(0, "end")
+            data = json.load(open("resources.json"))
+            for map in data["maps"]:
+                map_dropdown.append(map["name"])
+                mp.children["menu"].add_command(label=map["name"], command=lambda m=map["name"]: map_select(m))
+            with open("state.json", "r") as jsonFile:
+                statedata = json.load(jsonFile)
+
+            if statedata["map"] == "":
+                variable2.set("MAPs")
+            else:
+                variable2.set(statedata["map"])
+
+def dl_mod():
+    try:
+        a = ask_url()
+        if a:
+            v = dl_resources(a,"mod")
+            if v != "error":
+                mod_dropdown = []
+                md.children["menu"].delete(0, "end")
+                data = json.load(open("resources.json"))
+                for mod in data["mods"]:
+                    mod_dropdown.append(mod["name"])
+                    md.children["menu"].add_command(label=mod["name"], command=lambda m=mod["name"]: mod_select(m))
+
+    except ValueError as err:
+        tkinter.messagebox.showwarning("Error", err.args)
 
 def aboutpage():
     tkinter.messagebox.showinfo("About Defiance-Launcher", "Contribute at https://www.github.com/m3hran/defiance-launcher")
@@ -165,20 +241,20 @@ def init_resources():
 
         # Download MODs if necessary
         for mod in data["mods"]:
-            if not os.path.exists("mods/"+mod["name"]):
+            if not os.path.exists("mods/"+mod["folderName"]):
                 lock.set("true")
                 statusText.set("Downloading " + mod["name"] + " ...")
                 dl_resources(mod["url"],"mod")
-                print("downloading "+mod["name"])
+                #print("downloading "+mod["name"])
             lock.set("false")
 
         # Download Maps if necessary
         for map in data["maps"]:
-            if not os.path.exists("maps/"+ map["name"]):
+            if not os.path.exists("maps/"+ map["folderName"]):
                 lock.set("true")
                 statusText.set("Downloading " + map["name"] + "...")
                 dl_resources(map["url"],"map")
-                print("downloading "+map["name"])
+                #print("downloading "+map["name"])
             lock.set("false")
         statusText.set("Locating Steamapps...Please wait..")
 
@@ -205,7 +281,7 @@ def init_resources():
             lock.set("false")
         sema.release()
 
-    sema = threading.BoundedSemaphore(value=2)
+
 
     t1 = threading.Thread(target=callback1)
     t1.start()
@@ -213,50 +289,16 @@ def init_resources():
     t2 = threading.Thread(target=callback2)
     t2.start()
 
-def dl_map():
-    a = ask_url()
-    if a:
-        dl_resources(a,"map")
-        map_dropdown = []
-        mp.children["menu"].delete(0, "end")
-        data = json.load(open("resources.json"))
-        for map in data["mapss"]:
-            map_dropdown.append(map["name"])
-            mp.children["menu"].add_command(label=map["name"], command=lambda m=map["name"]: variable2.set(m))
-        with open("state.json", "r") as jsonFile:
-            statedata = json.load(jsonFile)
-
-        if statedata["map"] == "":
-            variable1.set("MAPs")
-        else:
-            variable1.set(statedata["map"])
-
-def dl_mod():
-    a = ask_url()
-    if a:
-        dl_resources(a,"mod")
-        mod_dropdown = []
-        md.children["menu"].delete(0, "end")
-        data = json.load(open("resources.json"))
-        for mod in data["mods"]:
-            mod_dropdown.append(mod["name"])
-            md.children["menu"].add_command(label=mod["name"], command=lambda m=mod["name"]: variable1.set(m))
-        with open("state.json", "r") as jsonFile:
-            statedata = json.load(jsonFile)
-
-        if statedata["mod"] == "":
-            variable1.set("MODs")
-        else:
-            variable1.set(statedata["mod"])
-
 def LaunchCiv():
-    data = json.load(open("state.json"))
-    print(data["path"])
-    steampath=data["path"]
-    steampath= re.sub('(steamapps).*', '', steampath)
-    steampath=steampath+"Steam.exe"
-    subprocess.Popen([steampath,"steam://rungameid/8930//%5Cdx11"])
-    root.destroy()
+    if sema.acquire(blocking=False):
+        data = json.load(open("state.json"))
+        print(data["path"])
+        steampath=data["path"]
+        steampath= re.sub('(steamapps).*', '', steampath)
+        steampath=steampath+"Steam.exe"
+        subprocess.Popen([steampath,"steam://rungameid/8930//%5Cdx11"])
+        sema.release()
+        root.destroy()
 
 def SetAsset(name,type):
 
@@ -264,58 +306,110 @@ def SetAsset(name,type):
         data = json.load(jsonFile)
 
     data[type] = name
-    print("setting asset "+data[type])
-    with open("state.json", "w") as jsonFile:
-        json.dump(data, jsonFile)
 
     if type == 'mod':
-        dpath= data["path"] + "\\Assets\\DLC\\" + name
-        shutil.copytree("mods\\"+name, dpath)
-
+        p = "\\Assets\\DLC\\"
+        q = "mods\\"
     if type == 'map':
-        dpath= data["path"] + "\\Assets\\Maps\\" + name
-        shutil.copytree("maps\\"+name, dpath)
+        p = "\\Assets\\Maps\\"
+        q = "maps\\"
 
+    with open("resources.json", "r") as jsonFile:
+        d = json.load(jsonFile)
+    for mod in d[type+"s"]:
+        if name == mod["name"]:
+            name = mod["folderName"]
+
+    dpath= data["path"] + p + name
+    if not os.path.exists(dpath):
+        def callback3():
+
+            sema.acquire()
+            statusText.set("Modding...Please wait..")
+            disableLaunch()
+            if type == 'mod':
+                md.configure(state="disabled")
+            if type == 'map':
+                mp.config(state="disabled")
+
+            shutil.copytree(q+name, dpath)
+            with open("state.json", "w") as jsonFile:
+                json.dump(data, jsonFile)
+            sema.release()
+            if (sema.acquire(blocking=False)):
+                enableLaunch()
+                if type == 'mod':
+                    md.configure(state="active")
+                if type == 'map':
+                    mp.configure(state="active")
+                statusText.set("Ready.")
+                sema.release()
+
+        t3 = threading.Thread(target=callback3)
+        t3.start()
 
 def rmAsset(type):
     with open("state.json", "r") as jsonFile:
         data = json.load(jsonFile)
 
     if data[type] != "":
-        print("removing asset "+data[type])
 
-        modp=data["path"] + "\\Assets\\DLC\\" + data[type] + "\\"
-        mapp=data["path"] + "\\Assets\\Maps\\" + data[type] + "\\"
 
-        if type == 'mod':
-            if os.path.exists(modp):
-                    shutil.rmtree(modp)
-        if type == 'map':
-            if os.path.exists(mapp):
-                    shutil.rmtree(mapp)
+        with open("resources.json", "r") as jsonFile:
+            d = json.load(jsonFile)
+        for mod in d[type + "s"]:
+            if data[type] == mod["name"]:
+                name = mod["folderName"]
 
-        data[type] = ""
-        with open("state.json", "w") as jsonFile:
-            json.dump(data, jsonFile)
+        modp=data["path"] + "\\Assets\\DLC\\" + name + "\\"
+        mapp=data["path"] + "\\Assets\\Maps\\" + name + "\\"
+        def callback4():
+            sema.acquire()
+            disableLaunch()
+            statusText.set("Removing...Please wait..")
+            if type == 'mod':
+                if os.path.exists(modp):
+                        shutil.rmtree(modp)
+            if type == 'map':
+                if os.path.exists(mapp):
+                        shutil.rmtree(mapp)
 
+            data[type] = ""
+            with open("state.json", "w") as jsonFile:
+                json.dump(data, jsonFile)
+            sema.release()
+            if (sema.acquire(blocking=False)):
+                enableLaunch()
+                statusText.set("Ready.")
+                sema.release()
+
+        t4 = threading.Thread(target=callback4)
+        t4.start()
+
+#refact mod_select
 def mod_select(name):
-    statusText.set("Modding...Please Wait..")
     data = json.load(open("state.json"))
+
     if data["mod"] == "":
         SetAsset(name,"mod")
+        variable1.set(name)
     else:
-        rmAsset("mod")
-        SetAsset(name,"mod")
-    statusText.set("Ready.")
+        if data["mod"] != name and sema.acquire(blocking=False):
+                rmAsset("mod")
+                SetAsset(name,"mod")
+                variable1.set(name)
+                sema.release()
+
 
 def map_select(name):
     data = json.load(open("state.json"))
-    statusText.set("Modding...Please Wait..")
+
     if data["map"] == "":
         SetAsset(name,"map")
     else:
         rmAsset("map")
         SetAsset(name,"map")
+    variable2.set(name)
     statusText.set("Ready.")
 
 def removeAll():
@@ -323,6 +417,13 @@ def removeAll():
     variable1.set("MODs")
     rmAsset("map")
     variable2.set("MAPs")
+
+def enableLaunch():
+    LaunchButt.configure(state="active", image=LaunchIcon_en )
+
+def disableLaunch():
+    LaunchButt.configure(state="disabled")
+
 
 def muteselection():
     with open("state.json", "r") as jsonFile:
@@ -339,12 +440,14 @@ def muteselection():
         json.dump(data, jsonFile)
 
 def on_enter(event):
-    if lock.get() == "false":
+    if sema.acquire(blocking=False):
         statusText.set("Launch..")
+        sema.release()
 
 def on_leave(event):
-    if lock.get() == "false":
+    if sema.acquire(blocking=False):
         statusText.set("Ready.")
+        sema.release()
 
 # ********* Main **********
 #music
@@ -353,6 +456,9 @@ pygame.mixer.music.load("baba.mp3")
 pygame.mixer.music.play(-1)
 ver="0.18.0503"
 install_path = ""
+fname=""
+sema = threading.BoundedSemaphore(value=2)
+#sema = threading.BoundedSemaphore(value=2)
 
 root = Tk()
 root.iconbitmap(r'launcher_favicon.ico')
@@ -438,38 +544,40 @@ with open("state.json", "r") as jsonFile:
     statedata = json.load(jsonFile)
 
 setMenu("mod")
-md = OptionMenu(f1, variable1, *mod_dropdown, command=mod_select)
+
+if mod_dropdown != []:
+    md = OptionMenu(f1, variable1, *mod_dropdown, command=mod_select)
+else:
+    md = OptionMenu(f1, variable1, None, command=mod_select)
 md.pack(side=LEFT, padx=25)
 
 map_dropdown=[]
-
 data = json.load(open("resources.json"))
 
 for map in data["maps"]:
     map_dropdown.append(map["name"])
 
-#if statedata["map"] == "":
-#    variable2.set("MAPs")
-#else:
-#    variable2.set(statedata["map"])
-
 setMenu("map")
-mp = OptionMenu(f2, variable2, *map_dropdown, command=map_select)
+if map_dropdown != []:
+    mp = OptionMenu(f2, variable2, *map_dropdown, command=map_select)
+else:
+    mp = OptionMenu(f2, variable2, None, command=map_select)
 mp.pack(side=LEFT, padx=25)
 
 
 LaunchButt = Button(f3, text="Launch", command=LaunchCiv)
 
 #LaunchIcon= PhotoImage(file="defiance_logo.png")
-LaunchIcon= PhotoImage(file="launch3.png")
-LaunchButt.config(image=LaunchIcon,height=70,width=70)
+LaunchIcon_en= PhotoImage(file="launch3.png")
+LaunchButt.config(image=LaunchIcon_en,height=82,width=82)
 LaunchButt["bg"] = "white"
 LaunchButt[ "border" ] = "3"
-LaunchButt.pack(side=LEFT,pady=20)
+LaunchButt.pack(side=LEFT,pady=10)
 LaunchButt.bind("<Enter>", on_enter)
 LaunchButt.bind("<Leave>", on_leave)
 
 init_resources()
+
 root.mainloop()
 
 

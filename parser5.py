@@ -15,14 +15,13 @@ def find_existing(type):
         folder="\\Assets\\DLC"
     if type == "map":
         folder="\\Assets\\Maps"
-        print("here")
-        for a in data[obj]:
-            rex = re.compile(a["name"])
-            for root,dirs,files in os.walk(statedata["path"]+folder):
-                for d in dirs:
-                    result = rex.search(d)
-                    if result:
-                        return a["name"]
+    for a in data[obj]:
+        rex = re.compile(a["name"])
+        for root,dirs,files in os.walk(statedata["path"]+folder):
+            for d in dirs:
+                result = rex.search(d)
+                if result:
+                    return a["name"]
 
 def search_drives(path):
     rex = re.compile(path)
